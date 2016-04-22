@@ -3,6 +3,10 @@
     <output-path>$PROJECT_DIR$/out/artifacts/JinFlux_jar</output-path>
     <root id="archive" name="JinFlux.jar">
       <element id="module-output" name="JinFlux" />
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/META-INF/MANIFEST.MF" />
+      </element>
+      <element id="library" level="project" name="onej" />
     </root>
   </artifact>
 </component>

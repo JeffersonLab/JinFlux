@@ -79,108 +79,94 @@ public class JinFlux {
         return exists;
     }
 
-    private Point.Builder addTagValue(Point.Builder point,
-                                      String tag,
-                                      Object value) {
+    private Point.Builder addFieldValue(Point.Builder point,
+                                        String field,
+                                        Object value) {
 
         if (value instanceof String) {
-            point.addField(tag, (String) value);
+            point.addField(field, (String) value);
 
         } else if (value instanceof Boolean) {
-            point.addField(tag, (Boolean) value);
+            point.addField(field, (Boolean) value);
 
         } else if (value instanceof Long) {
-            point.addField(tag, (Long) value);
+            point.addField(field, (Long) value);
 
         } else if (value instanceof Double) {
-            point.addField(tag, (Double) value);
+            point.addField(field, (Double) value);
 
         } else if (value instanceof Number) {
-            point.addField(tag, (Number) value);
+            point.addField(field, (Number) value);
         }
         return point;
     }
 
-    private Point.Builder addTagValue(Point.Builder point,
-                                      List<String> tags,
-                                      List<Object> values) throws JinFluxException {
-        if (tags.size() != values.size())
-            throw new JinFluxException("Inconsistent tab-value list sizes");
+    private Point.Builder addFieldValue(Point.Builder point,
+                                        Map<String, Object> tags){
 
-        for (String tag : tags) {
-            for (Object value : values) {
-                addTagValue(point, tag, value);
-            }
+        for (String tag : tags.keySet()) {
+                addFieldValue(point, tag, tags.get(tag));
         }
         return point;
     }
 
-    private Point getJinxPoint(String measurement,
-                               String tag,
-                               Object value) {
 
-        Point.Builder point = Point.measurement(measurement);
+    public Point.Builder eventSpot(String measurement) {
 
-        addTagValue(point, tag, value)
+        return Point.measurement(measurement);
+
+    }
+
+    public Point.Builder eventSpot(String measurement,
+                               String tagName,
+                               String value) {
+
+       return Point.measurement(measurement).tag(tagName,value);
+    }
+
+    public Point.Builder eventSpot(String measurement,
+                               Map<String, String> tags) {
+
+        return Point.measurement(measurement).tag(tags);
+
+    }
+
+
+    public void write(String dbName,
+                      Point.Builder spot,
+                      String fieldName,
+                      Object fieldValue) {
+
+               Point.Builder p = addFieldValue(spot, fieldName, fieldValue)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
-        return point.build();
-    }
-
-    private Point getJinxPoint(String measurement,
-                               List<String> tags,
-                               List<Object> values) throws JinFluxException {
-
-        Point.Builder point = Point.measurement(measurement);
-        addTagValue(point, tags, values);
-
-        point.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-
-        return point.build();
-    }
-
-    private Point getJinxPointArray(String measurement,
-                                    String tag,
-                                    List<Object> values) {
-
-        Point.Builder point = Point.measurement(measurement);
-        int i = 0;
-        for (Object value : values) {
-            addTagValue(point, tag + i, value);
-            i++;
-        }
-
-        point.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-
-        return point.build();
-    }
-
-    public void writeSingle(String dbName, String measurement,
-                            String tag,
-                            Object value) {
-
-        Point point = getJinxPoint(measurement, tag, value);
         // write the point to the database
-        influxDB.write(dbName, "default", point);
+        influxDB.write(dbName, "default", p.build());
     }
 
-    public void writeHisto(String dbName, String measurement,
-                           String tag,
-                           List<Object> value) {
+    public void write(String dbName,
+                      Point.Builder spot,
+                      String fieldName,
+                      List<Object> fieldValues) {
 
-        Point point = getJinxPointArray(measurement, tag, value);
+               Point.Builder p = addFieldValue(spot, fieldName, fieldValues)
+                .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+
         // write the point to the database
-        influxDB.write(dbName, "default", point);
+        influxDB.write(dbName, "default", p.build());
     }
 
+    public void write(String dbName,
+                      Point.Builder spot,
+                      Map<String, Object> fields) {
 
-    public void writeGroup(String dbName, String measurement,
-                           List<String> tags,
-                           List<Object> values) throws JinFluxException {
-        Point point = getJinxPoint(measurement, tags, values);
+        Point.Builder p = addFieldValue(spot, fields)
+                .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+
         // write the point to the database
-        influxDB.write(dbName, "default", point);
+        influxDB.write(dbName, "default", p.build());
     }
+
 
     public Map<Object, Object> read(String dbName, String measurement, String tag) throws JinFluxException {
         if (tag.equals("*")) throw new JinFluxException("wildcards are not supported");
@@ -219,7 +205,8 @@ public class JinFlux {
         QueryResult r = influxDB.query(query);
         for (QueryResult.Result qr : r.getResults()) {
             for (QueryResult.Series sr : qr.getSeries()) {
-                rl.add(sr.getName());
+                List<String> l = sr.getColumns();
+                rl.addAll(l);
             }
         }
         return rl;
