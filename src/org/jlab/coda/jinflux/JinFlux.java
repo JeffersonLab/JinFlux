@@ -35,6 +35,57 @@ public class JinFlux {
         this(influxDbHost, "root", "root");
     }
 
+    public void rpCreate(String dbName, int value, JinTime tm) {
+
+        System.out.println("CREATE RETENTION POLICY "+tm.name()+"_" + value +
+                " ON " + dbName + " DURATION " + value + tm.weight()+" REPLICATION 1 DEFAULT");
+
+        Query query = new Query("CREATE RETENTION POLICY "+tm.name()+"_" + value +
+                " ON " + dbName + " DURATION " + value + tm.weight()+" REPLICATION 1 DEFAULT", dbName);
+        influxDB.query(query);
+    }
+
+    public void rpRemove(String dbName, String rpName){
+        Query query = new Query("DROP RETENTION POLICY " + rpName +
+                " ON " + dbName, dbName);
+        influxDB.query(query);
+    }
+
+
+    public String rpShow(String dbName) {
+        Query query = new Query("SHOW RETENTION POLICIES ON " + dbName, dbName);
+        QueryResult r = influxDB.query(query);
+
+        String rpName = null;
+        boolean isRpDefault = false;
+
+        if (r.getResults() != null) {
+            for (QueryResult.Result qr : r.getResults()) {
+                for (QueryResult.Series sr : qr.getSeries()) {
+                    for (List<Object> l : sr.getValues()) {
+                        boolean first = true;
+                        for (Object ll : l) {
+                            if (first) {
+                                isRpDefault = false;
+                                rpName = (String) ll;
+                                first = false;
+                            } else {
+                                if(ll instanceof Boolean) {
+                                    Boolean tmp = (Boolean) ll;
+                                    if (tmp) isRpDefault = true;
+                                }
+                            }
+                        }
+                        if (isRpDefault) {
+                            return rpName;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     public boolean ping(int timeout) throws Exception {
         int tries = 0;
         timeout = timeout * 10;
@@ -102,30 +153,30 @@ public class JinFlux {
     }
 
     private Point.Builder addFieldValue(Point.Builder point,
-                                        Map<String, Object> tags){
+                                        Map<String, Object> tags) {
 
         for (String tag : tags.keySet()) {
-                addFieldValue(point, tag, tags.get(tag));
+            addFieldValue(point, tag, tags.get(tag));
         }
         return point;
     }
 
 
-    public Point.Builder eventSpot(String measurement) {
+    public Point.Builder open(String measurement) {
 
         return Point.measurement(measurement);
 
     }
 
-    public Point.Builder eventSpot(String measurement,
-                               String tagName,
-                               String value) {
+    public Point.Builder open(String measurement,
+                              String tagName,
+                              String value) {
 
-       return Point.measurement(measurement).tag(tagName,value);
+        return Point.measurement(measurement).tag(tagName, value);
     }
 
-    public Point.Builder eventSpot(String measurement,
-                               Map<String, String> tags) {
+    public Point.Builder open(String measurement,
+                              Map<String, String> tags) {
 
         return Point.measurement(measurement).tag(tags);
 
@@ -137,7 +188,7 @@ public class JinFlux {
                       String fieldName,
                       Object fieldValue) {
 
-               Point.Builder p = addFieldValue(spot, fieldName, fieldValue)
+        Point.Builder p = addFieldValue(spot, fieldName, fieldValue)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
         // write the point to the database
@@ -149,7 +200,7 @@ public class JinFlux {
                       String fieldName,
                       List<Object> fieldValues) {
 
-               Point.Builder p = addFieldValue(spot, fieldName, fieldValues)
+        Point.Builder p = addFieldValue(spot, fieldName, fieldValues)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
         // write the point to the database
@@ -217,39 +268,54 @@ public class JinFlux {
      *
      * @param dbName
      * @param measurement
-     * @param tag
      */
-    public void dump(String dbName, String measurement, String tag) {
-        Query query = new Query("SELECT " + tag + " FROM " + measurement, dbName);
-        QueryResult r = influxDB.query(query);
-        for (QueryResult.Result qr : r.getResults()) {
-            for (QueryResult.Series sr : qr.getSeries()) {
-                System.out.println("===================================================");
-                System.out.println("              " + sr.getName());
-                System.out.println("---------------------------------------------------");
+    public void dump(String dbName, String measurement) {
+        Query query = new Query("SELECT * FROM " + measurement, dbName);
 
-                for (String column : sr.getColumns()) {
-                    if (column.equals("time"))
-                        System.out.print(column + "                        ");
-                    else System.out.print(column + "\t");
-                }
-                System.out.println();
-                System.out.println("---------------------------------------------------");
-                for (List<Object> l : sr.getValues()) {
-                    boolean first = true;
-                    for (Object ll : l) {
-                        if (first) {
-                            System.out.print(ll + "\t");
-                            first = false;
-                        } else {
-                            System.out.print(ll + "\t\t");
-                        }
-                    }
-                    System.out.println();
-                }
-                System.out.println("===================================================");
-            }
-        }
+        QueryResult r = influxDB.query(query);
+
+        System.out.println(r);
+        printQueryResult(r);
+
     }
 
+    public boolean resetDb(String dbName) {
+            if (doesDbExists(dbName)) dbRemove(dbName);
+            return dbCreate(dbName);
+
+    }
+
+    private void printQueryResult(QueryResult r) {
+        if (r.getResults() != null) {
+            for (QueryResult.Result qr : r.getResults()) {
+                for (QueryResult.Series sr : qr.getSeries()) {
+                    System.out.println("===================================================");
+                    System.out.println("              " + sr.getName());
+                    System.out.println("---------------------------------------------------");
+
+                    for (String column : sr.getColumns()) {
+                        if (column.equals("time"))
+                            System.out.print(column + "                        ");
+                        else System.out.print(column + "\t");
+                    }
+                    System.out.println();
+                    System.out.println("---------------------------------------------------");
+                    for (List<Object> l : sr.getValues()) {
+                        boolean first = true;
+                        for (Object ll : l) {
+                            if (first) {
+                                System.out.print(ll + "\t");
+                                first = false;
+                            } else {
+                                System.out.print(ll + "\t\t");
+                            }
+                        }
+                        System.out.println();
+                    }
+                    System.out.println("===================================================");
+                }
+            }
+        }
+
+    }
 }
