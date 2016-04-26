@@ -18,7 +18,9 @@ public class WriteTest {
     public static void main(String[] args) {
 
         // connect to the database
-        JinFlux jinFlux = new JinFlux("claraweb.jlab.org");
+        JinFlux jinFlux = null;
+        try {
+            jinFlux = new JinFlux("claraweb.jlab.org");
 
         // list existing databases
         System.out.println(jinFlux.dbList());
@@ -78,6 +80,10 @@ public class WriteTest {
 //        } catch (JinFluxException e) {
 //            e.printStackTrace();
 //        }
+        } catch (JinFluxException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
 
 
     }

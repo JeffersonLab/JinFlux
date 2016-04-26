@@ -24,65 +24,80 @@ import java.util.concurrent.TimeUnit;
 public class JinFlux {
     private InfluxDB influxDB;
 
-    public JinFlux(String influxDbHost, String user, String password) {
-        this.influxDB = InfluxDBFactory.connect("http://" + influxDbHost + ":8086", user, password);
+    public JinFlux(String influxDbHost, String user, String password) throws JinFluxException {
+        try {
+            this.influxDB = InfluxDBFactory.connect("http://" + influxDbHost + ":8086", user, password);
 
-        // Flush every 1000 points, at least every 100ms (which one comes first)
-        this.influxDB.enableBatch(1000, 100, TimeUnit.MILLISECONDS);
+            // Flush every 1000 points, at least every 100ms (which one comes first)
+            this.influxDB.enableBatch(1000, 100, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
     }
 
-    public JinFlux(String influxDbHost) {
+    public JinFlux(String influxDbHost) throws JinFluxException {
         this(influxDbHost, "root", "root");
     }
 
-    public void rpCreate(String dbName, int value, JinTime tm) {
+    public void rpCreate(String dbName, int value, JinTime tm) throws JinFluxException {
 
-        System.out.println("CREATE RETENTION POLICY "+tm.name()+"_" + value +
-                " ON " + dbName + " DURATION " + value + tm.weight()+" REPLICATION 1 DEFAULT");
-
-        Query query = new Query("CREATE RETENTION POLICY "+tm.name()+"_" + value +
-                " ON " + dbName + " DURATION " + value + tm.weight()+" REPLICATION 1 DEFAULT", dbName);
-        influxDB.query(query);
+        Query query = new Query("CREATE RETENTION POLICY " + tm.name() + "_" + value +
+                " ON " + dbName + " DURATION " + value + tm.weight() + " REPLICATION 1 DEFAULT", dbName);
+        try {
+            influxDB.query(query);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
     }
 
-    public void rpRemove(String dbName, String rpName){
+    public void rpRemove(String dbName, String rpName) throws JinFluxException {
         Query query = new Query("DROP RETENTION POLICY " + rpName +
                 " ON " + dbName, dbName);
-        influxDB.query(query);
+        try {
+            influxDB.query(query);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+
     }
 
 
-    public String rpShow(String dbName) {
+    public String rpShow(String dbName) throws JinFluxException {
         Query query = new Query("SHOW RETENTION POLICIES ON " + dbName, dbName);
-        QueryResult r = influxDB.query(query);
+        try {
+            QueryResult r = influxDB.query(query);
 
-        String rpName = null;
-        boolean isRpDefault = false;
+            String rpName = null;
+            boolean isRpDefault = false;
 
-        if (r.getResults() != null) {
-            for (QueryResult.Result qr : r.getResults()) {
-                for (QueryResult.Series sr : qr.getSeries()) {
-                    for (List<Object> l : sr.getValues()) {
-                        boolean first = true;
-                        for (Object ll : l) {
-                            if (first) {
-                                isRpDefault = false;
-                                rpName = (String) ll;
-                                first = false;
-                            } else {
-                                if(ll instanceof Boolean) {
-                                    Boolean tmp = (Boolean) ll;
-                                    if (tmp) isRpDefault = true;
+            if (r.getResults() != null) {
+                for (QueryResult.Result qr : r.getResults()) {
+                    for (QueryResult.Series sr : qr.getSeries()) {
+                        for (List<Object> l : sr.getValues()) {
+                            boolean first = true;
+                            for (Object ll : l) {
+                                if (first) {
+                                    isRpDefault = false;
+                                    rpName = (String) ll;
+                                    first = false;
+                                } else {
+                                    if (ll instanceof Boolean) {
+                                        Boolean tmp = (Boolean) ll;
+                                        if (tmp) isRpDefault = true;
+                                    }
                                 }
                             }
-                        }
-                        if (isRpDefault) {
-                            return rpName;
+                            if (isRpDefault) {
+                                return rpName;
+                            }
                         }
                     }
                 }
             }
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
         }
+
         return null;
     }
 
@@ -93,6 +108,7 @@ public class JinFlux {
         do {
             Pong response;
             response = this.influxDB.ping();
+
             if (!response.getVersion().equalsIgnoreCase("unknown")) {
                 influxStarted = true;
             }
@@ -103,20 +119,28 @@ public class JinFlux {
         return (tries < timeout);
     }
 
-    public boolean dbCreate(String dbName) {
+    public boolean dbCreate(String dbName) throws JinFluxException {
         influxDB.createDatabase(dbName);
         return doesDbExists(dbName);
     }
 
-    public void dbRemove(String dbName) {
-        influxDB.deleteDatabase(dbName);
+    public void dbRemove(String dbName) throws JinFluxException {
+        try {
+            influxDB.deleteDatabase(dbName);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
     }
 
-    public List<String> dbList() {
-        return influxDB.describeDatabases();
+    public List<String> dbList() throws JinFluxException {
+        try {
+            return influxDB.describeDatabases();
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
     }
 
-    public boolean doesDbExists(String dbName) {
+    public boolean doesDbExists(String dbName) throws JinFluxException {
         boolean exists = false;
         List<String> result = dbList();
         if (result != null && result.size() > 0) {
@@ -186,36 +210,51 @@ public class JinFlux {
     public void write(String dbName,
                       Point.Builder spot,
                       String fieldName,
-                      Object fieldValue) {
+                      Object fieldValue) throws JinFluxException {
 
         Point.Builder p = addFieldValue(spot, fieldName, fieldValue)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
         // write the point to the database
-        influxDB.write(dbName, "default", p.build());
+        try {
+            influxDB.write(dbName, "default", p.build());
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+
     }
 
     public void write(String dbName,
                       Point.Builder spot,
                       String fieldName,
-                      List<Object> fieldValues) {
+                      List<Object> fieldValues) throws JinFluxException {
 
         Point.Builder p = addFieldValue(spot, fieldName, fieldValues)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
         // write the point to the database
-        influxDB.write(dbName, "default", p.build());
+        try {
+            influxDB.write(dbName, "default", p.build());
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+
     }
 
     public void write(String dbName,
                       Point.Builder spot,
-                      Map<String, Object> fields) {
+                      Map<String, Object> fields) throws JinFluxException {
 
         Point.Builder p = addFieldValue(spot, fields)
                 .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
         // write the point to the database
-        influxDB.write(dbName, "default", p.build());
+        try {
+            influxDB.write(dbName, "default", p.build());
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+
     }
 
 
@@ -225,41 +264,51 @@ public class JinFlux {
         Object o1 = null;
         Object o2 = null;
         Query query = new Query("SELECT " + tag + " FROM " + measurement, dbName);
-        QueryResult r = influxDB.query(query);
-        if (r != null) {
-            for (QueryResult.Result qr : r.getResults()) {
-                for (QueryResult.Series sr : qr.getSeries()) {
-                    for (List<Object> l : sr.getValues()) {
-                        boolean first = true;
-                        for (Object ll : l) {
-                            if (first) {
-                                o1 = ll;
-                                first = false;
-                            } else {
-                                o2 = ll;
-                                first = true;
-                            }
-                            if (first) {
-                                rm.put(o1, o2);
+        try {
+            QueryResult r = influxDB.query(query);
+            if (r != null) {
+                for (QueryResult.Result qr : r.getResults()) {
+                    for (QueryResult.Series sr : qr.getSeries()) {
+                        for (List<Object> l : sr.getValues()) {
+                            boolean first = true;
+                            for (Object ll : l) {
+                                if (first) {
+                                    o1 = ll;
+                                    first = false;
+                                } else {
+                                    o2 = ll;
+                                    first = true;
+                                }
+                                if (first) {
+                                    rm.put(o1, o2);
+                                }
                             }
                         }
                     }
                 }
             }
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
         }
         return rm;
     }
 
-    public List<String> readTags(String dbName, String measurement) {
+    public List<String> readTags(String dbName, String measurement) throws JinFluxException {
         List<String> rl = new ArrayList<>();
         Query query = new Query("SELECT *  FROM " + measurement, dbName);
-        QueryResult r = influxDB.query(query);
-        for (QueryResult.Result qr : r.getResults()) {
-            for (QueryResult.Series sr : qr.getSeries()) {
-                List<String> l = sr.getColumns();
-                rl.addAll(l);
+        try {
+            QueryResult r = influxDB.query(query);
+
+            for (QueryResult.Result qr : r.getResults()) {
+                for (QueryResult.Series sr : qr.getSeries()) {
+                    List<String> l = sr.getColumns();
+                    rl.addAll(l);
+                }
             }
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
         }
+
         return rl;
     }
 
@@ -269,19 +318,23 @@ public class JinFlux {
      * @param dbName
      * @param measurement
      */
-    public void dump(String dbName, String measurement) {
+    public void dump(String dbName, String measurement) throws JinFluxException {
         Query query = new Query("SELECT * FROM " + measurement, dbName);
 
-        QueryResult r = influxDB.query(query);
+        try {
+            QueryResult r = influxDB.query(query);
 
-        System.out.println(r);
-        printQueryResult(r);
+            System.out.println(r);
+            printQueryResult(r);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
 
     }
 
-    public boolean resetDb(String dbName) {
-            if (doesDbExists(dbName)) dbRemove(dbName);
-            return dbCreate(dbName);
+    public boolean resetDb(String dbName) throws JinFluxException {
+        if (doesDbExists(dbName)) dbRemove(dbName);
+        return dbCreate(dbName);
 
     }
 
