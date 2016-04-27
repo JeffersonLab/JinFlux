@@ -39,28 +39,6 @@ public class JinFlux {
         this(influxDbHost, "root", "root");
     }
 
-    public void rpCreate(String dbName, int value, JinTime tm) throws JinFluxException {
-
-        Query query = new Query("CREATE RETENTION POLICY " + tm.name() + "_" + value +
-                " ON " + dbName + " DURATION " + value + tm.weight() + " REPLICATION 1 DEFAULT", dbName);
-        try {
-            influxDB.query(query);
-        } catch (Exception e) {
-            throw new JinFluxException(e.getMessage());
-        }
-    }
-
-    public void rpRemove(String dbName, String rpName) throws JinFluxException {
-        Query query = new Query("DROP RETENTION POLICY " + rpName +
-                " ON " + dbName, dbName);
-        try {
-            influxDB.query(query);
-        } catch (Exception e) {
-            throw new JinFluxException(e.getMessage());
-        }
-
-    }
-
 
     public String rpShow(String dbName) throws JinFluxException {
         Query query = new Query("SHOW RETENTION POLICIES ON " + dbName, dbName);
@@ -75,7 +53,9 @@ public class JinFlux {
                     for (QueryResult.Series sr : qr.getSeries()) {
                         for (List<Object> l : sr.getValues()) {
                             boolean first = true;
+                            StringBuilder sb = new StringBuilder();
                             for (Object ll : l) {
+                                sb.append(ll).append(" ");
                                 if (first) {
                                     isRpDefault = false;
                                     rpName = (String) ll;
@@ -88,7 +68,8 @@ public class JinFlux {
                                 }
                             }
                             if (isRpDefault) {
-                                return rpName;
+//                                return rpName;
+                                return sb.toString();
                             }
                         }
                     }
@@ -124,6 +105,20 @@ public class JinFlux {
         return doesDbExists(dbName);
     }
 
+    public boolean dbCreate(String dbName, int value, JinTime tm) throws JinFluxException {
+        if(doesDbExists(dbName)){
+            dbRemove(dbName);
+        }
+        Query query = new Query("CREATE DATABASE " + dbName +
+                " WITH DURATION " + value+tm.weight()+" REPLICATION 1 NAME rpafecs", dbName);
+        try {
+            influxDB.query(query);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+        return doesDbExists(dbName);
+    }
+
     public void dbRemove(String dbName) throws JinFluxException {
         try {
             influxDB.deleteDatabase(dbName);
@@ -154,7 +149,7 @@ public class JinFlux {
         return exists;
     }
 
-    private Point.Builder addFieldValue(Point.Builder point,
+    public Point.Builder add(Point.Builder point,
                                         String field,
                                         Object value) {
 
@@ -170,17 +165,28 @@ public class JinFlux {
         } else if (value instanceof Double) {
             point.addField(field, (Double) value);
 
+        } else if (value instanceof Float) {
+            point.addField(field, (Float) value);
+
         } else if (value instanceof Number) {
             point.addField(field, (Number) value);
+
+        }else if (value instanceof List) {
+            List l = (List)value;
+            for(int i=0; i<l.size();i++) {
+                if(l.get(i) instanceof Number) {
+                    point.addField(field + "_" + i, (Number)l.get(i));
+                } else break;
+            }
         }
         return point;
     }
 
-    private Point.Builder addFieldValue(Point.Builder point,
+    public Point.Builder add(Point.Builder point,
                                         Map<String, Object> tags) {
 
         for (String tag : tags.keySet()) {
-            addFieldValue(point, tag, tags.get(tag));
+            add(point, tag, tags.get(tag));
         }
         return point;
     }
@@ -207,56 +213,18 @@ public class JinFlux {
     }
 
 
-    public void write(String dbName,
-                      Point.Builder spot,
-                      String fieldName,
-                      Object fieldValue) throws JinFluxException {
+    public void flush(String dbName,
+                      Point.Builder spot) throws JinFluxException {
 
-        Point.Builder p = addFieldValue(spot, fieldName, fieldValue)
-                .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-
+        spot.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
         // write the point to the database
         try {
-            influxDB.write(dbName, "default", p.build());
+            influxDB.write(dbName, "rpafecs", spot.build());
         } catch (Exception e) {
             throw new JinFluxException(e.getMessage());
         }
 
     }
-
-    public void write(String dbName,
-                      Point.Builder spot,
-                      String fieldName,
-                      List<Object> fieldValues) throws JinFluxException {
-
-        Point.Builder p = addFieldValue(spot, fieldName, fieldValues)
-                .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-
-        // write the point to the database
-        try {
-            influxDB.write(dbName, "default", p.build());
-        } catch (Exception e) {
-            throw new JinFluxException(e.getMessage());
-        }
-
-    }
-
-    public void write(String dbName,
-                      Point.Builder spot,
-                      Map<String, Object> fields) throws JinFluxException {
-
-        Point.Builder p = addFieldValue(spot, fields)
-                .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-
-        // write the point to the database
-        try {
-            influxDB.write(dbName, "default", p.build());
-        } catch (Exception e) {
-            throw new JinFluxException(e.getMessage());
-        }
-
-    }
-
 
     public Map<Object, Object> read(String dbName, String measurement, String tag) throws JinFluxException {
         if (tag.equals("*")) throw new JinFluxException("wildcards are not supported");
@@ -332,7 +300,7 @@ public class JinFlux {
 
     }
 
-    public boolean resetDb(String dbName) throws JinFluxException {
+    public boolean dbReset(String dbName) throws JinFluxException {
         if (doesDbExists(dbName)) dbRemove(dbName);
         return dbCreate(dbName);
 
