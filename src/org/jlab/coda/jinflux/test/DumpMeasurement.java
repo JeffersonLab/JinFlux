@@ -23,7 +23,7 @@ public class DumpMeasurement {
             JinFlux jinFlux = new JinFlux(dbNode);
 
             // dump the measurement
-            jinFlux.dump(dbName, expid);
+            jinFlux.dumpTB(dbName, expid);
 
         } catch (JinFluxException e) {
             e.printStackTrace();

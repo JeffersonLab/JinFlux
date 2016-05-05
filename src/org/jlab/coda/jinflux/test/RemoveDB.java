@@ -18,7 +18,7 @@ public class RemoveDB {
 
         try {
             JinFlux jinFlux = new JinFlux(dbNode);
-            jinFlux.dbRemove(dbName);
+            jinFlux.removeDB(dbName);
         } catch (JinFluxException e) {
             e.printStackTrace();
         }

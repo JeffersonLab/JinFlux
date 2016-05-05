@@ -22,7 +22,7 @@ public class ShowRetentionPolicy {
             jinFlux = new JinFlux("claraweb.jlab.org");
 
         // print the default retention policy
-        System.out.println(jinFlux.rpShow(dbName));
+        System.out.println(jinFlux.showRP(dbName));
 
         } catch (JinFluxException e) {
             e.printStackTrace();

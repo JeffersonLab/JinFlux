@@ -19,7 +19,7 @@ public class CreateDB {
 
         try {
             JinFlux jinFlux = new JinFlux(dbNode);
-            jinFlux.dbCreate(dbName, 1, JinTime.HOURE);
+            jinFlux.createDB(dbName, 1, JinTime.HOURE);
         } catch (JinFluxException e) {
             e.printStackTrace();
         }

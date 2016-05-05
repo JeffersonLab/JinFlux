@@ -14,12 +14,13 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Class description here....
+ * Time series database Java API.
+ * Uses InfluxDB java binding as a base.
  * <p>
  *
  * @author gurjyan
  *         Date 4/19/16
- * @version 3.x
+ * @version 1.x
  */
 public class JinFlux {
     private InfluxDB influxDB;
@@ -84,7 +85,7 @@ public class JinFlux {
      * @return String representing the retention policy
      * @throws JinFluxException
      */
-    public String rpShow(String dbName) throws JinFluxException {
+    public String showRP(String dbName) throws JinFluxException {
         Query query = new Query("SHOW RETENTION POLICIES ON " + dbName, dbName);
         try {
             QueryResult r = influxDB.query(query);
@@ -158,10 +159,10 @@ public class JinFlux {
      * @return true if succeeded to create the database
      * @throws JinFluxException
      */
-    public boolean dbCreate(String dbName, int retentionTime, JinTime tm, String rpName)
+    public boolean createDB(String dbName, int retentionTime, JinTime tm, String rpName)
             throws JinFluxException {
-        if(doesDbExists(dbName)){
-            dbRemove(dbName);
+        if(existsDB(dbName)){
+            removeDB(dbName);
         }
         Query query = new Query("CREATE DATABASE " + dbName +
                 " WITH DURATION " + retentionTime+tm.weight()+" REPLICATION 1 NAME "+rpName, dbName);
@@ -170,11 +171,12 @@ public class JinFlux {
         } catch (Exception e) {
             throw new JinFluxException(e.getMessage());
         }
-        return doesDbExists(dbName);
+        return existsDB(dbName);
     }
 
     /**
-     * Creates a database with specific data retentio
+     * Creates a database with specific data retention.
+     * The default name = rpafecs is assigned to the policy
      * <p>
      *
      * @param dbName database name
@@ -183,29 +185,50 @@ public class JinFlux {
      * @return true if succeeded to create the database
      * @throws JinFluxException
      */
-    public boolean dbCreate(String dbName, int retentionTime, JinTime tm)
+    public boolean createDB(String dbName, int retentionTime, JinTime tm)
             throws JinFluxException {
-        return dbCreate(dbName, retentionTime, tm, "rpafecs");
+        return createDB(dbName, retentionTime, tm, "rpafecs");
      }
 
-    public boolean dbCreate(String dbName)
+    /**
+     * Creating a database with the default retention policy:
+     * retention of the data = forever and the policy name = default
+     * <p>
+     *
+     * @param dbName the name of the database
+     * @return true if succeeded to create the database
+     * @throws JinFluxException
+     */
+    public boolean createDB(String dbName)
             throws JinFluxException {
         influxDB.createDatabase(dbName);
-        return doesDbExists(dbName);
+        return existsDB(dbName);
     }
 
-
-
-    public void measureRemove(String dbName, String measurement) throws JinFluxException {
-        Query query = new Query("DROP MEASUREMENT " + measurement, dbName);
-        try {
-            influxDB.query(query);
-        } catch (Exception e) {
-            throw new JinFluxException(e.getMessage());
-        }
+    /**
+     * Recreating a database with the default retention policy:
+     * retention of the data = forever and the policy name = default
+     * The existing database will be removed first.
+     * <p>
+     *
+     * @param dbName
+     * @return
+     * @throws JinFluxException
+     */
+    public boolean recreateDB(String dbName) throws JinFluxException {
+        if (existsDB(dbName)) removeDB(dbName);
+        return createDB(dbName);
 
     }
-    public void dbRemove(String dbName) throws JinFluxException {
+
+    /**
+     * Removes the database
+     * <p>
+     *
+     * @param dbName the name of the database
+     * @throws JinFluxException
+     */
+    public void removeDB(String dbName) throws JinFluxException {
         try {
             influxDB.deleteDatabase(dbName);
         } catch (Exception e) {
@@ -213,7 +236,14 @@ public class JinFlux {
         }
     }
 
-    public List<String> dbList() throws JinFluxException {
+    /**
+     * Lists of all databases
+     * <p>
+     *
+     * @return List of database names
+     * @throws JinFluxException
+     */
+    public List<String> listDB() throws JinFluxException {
         try {
             return influxDB.describeDatabases();
         } catch (Exception e) {
@@ -221,9 +251,17 @@ public class JinFlux {
         }
     }
 
-    public boolean doesDbExists(String dbName) throws JinFluxException {
+    /**
+     * Checks if the database exists.
+     * <p>
+     *
+     * @param dbName the name of the database
+     * @return true if the database exists
+     * @throws JinFluxException
+     */
+    public boolean existsDB(String dbName) throws JinFluxException {
         boolean exists = false;
-        List<String> result = dbList();
+        List<String> result = listDB();
         if (result != null && result.size() > 0) {
             for (String database : result) {
                 if (database.equals(dbName)) {
@@ -235,9 +273,100 @@ public class JinFlux {
         return exists;
     }
 
-    public Point.Builder add(Point.Builder point,
-                                        String field,
-                                        Object value) {
+    /**
+     * Creates a table builder.
+     * Note: this will not create an empty table in the database.
+     * <p>
+     *
+     * @param measurement the name of the table
+     * @return pointer to the table
+     */
+    public Point.Builder openTB(String measurement) {
+
+        return Point.measurement(measurement);
+    }
+
+    /**
+     * Creates a table builder, with an additional tag (in addition to time)
+     * Note: this will not create an empty table in the database.
+     * <p>
+     *
+     * @param measurement the name of the table
+     * @param tagName the name of the tag
+     * @param value the value of the tag
+     * @return pointer to the table
+     */
+    public Point.Builder openTB(String measurement,
+                                String tagName,
+                                String value) {
+
+        return Point.measurement(measurement).tag(tagName, value);
+    }
+
+    /**
+     * Creates a table builder, with additional tags (in addition to time)
+     * Note: this will not create an empty table in the database.
+     * <p>
+     *
+     * @param measurement the name of the table
+     * @param tags the map of table tag value pairs
+     * @return pointer to the table
+     */
+    public Point.Builder openTB(String measurement,
+                                Map<String, String> tags) {
+
+        return Point.measurement(measurement).tag(tags);
+    }
+
+    /**
+     * Remove the existing table from the database.
+     * <p>
+     *
+     * @param dbName the of the database
+     * @param measurement the name of the measurement
+     * @throws JinFluxException
+     */
+    public void removeTB(String dbName, String measurement) throws JinFluxException {
+        Query query = new Query("DROP MEASUREMENT " + measurement, dbName);
+        try {
+            influxDB.query(query);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+    }
+
+    /**
+     * Dumps the content of the database recorded table on the console.
+     *
+     * @param dbName the name of the database
+     * @param measurement the name of the table
+     */
+    public void dumpTB(String dbName, String measurement) throws JinFluxException {
+        Query query = new Query("SELECT * FROM " + measurement, dbName);
+
+        try {
+            QueryResult r = influxDB.query(query);
+
+            System.out.println(r);
+            printQueryResult(r);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+    }
+
+    /**
+     * Adds a data point to the table. Accepts types, such as any Number,
+     * String, Boolean, Long, Double, Float, as well as list of Numbers
+     * <p>
+     *
+     * @param point reference to the table
+     * @param field the name of the data point
+     * @param value the value of the data point
+     * @return reference to the table builder
+     */
+    public Point.Builder addDP(Point.Builder point,
+                               String field,
+                               Object value) {
 
         if (value instanceof String) {
             point.addField(field, (String) value);
@@ -268,46 +397,52 @@ public class JinFlux {
         return point;
     }
 
-    public Point.Builder add(Point.Builder point,
-                                        Map<String, Object> tags) {
+    /**
+     * Adds a group of data points to the table
+     * <p>
+     *
+     * @param point reference to the table builder
+     * @param tags map of data point names and values
+     * @return reference to the table builder
+     */
+    public Point.Builder addDP(Point.Builder point,
+                               Map<String, Object> tags) {
 
         for (String tag : tags.keySet()) {
-            add(point, tag, tags.get(tag));
+            addDP(point, tag, tags.get(tag));
         }
         return point;
     }
 
 
-    public Point.Builder open(String measurement) {
-
-        return Point.measurement(measurement);
-
-    }
-
-    public Point.Builder open(String measurement,
-                              String tagName,
-                              String value) {
-
-        return Point.measurement(measurement).tag(tagName, value);
-    }
-
-    public Point.Builder open(String measurement,
-                              Map<String, String> tags) {
-
-        return Point.measurement(measurement).tag(tags);
-
-    }
-
-
-    public void flush(String dbName,
+    /**
+     * Writes the table into the database. The time is defined and
+     * recorded for all the data points od the table. If the
+     * table does not exists it will be created.
+     * <p>
+     *
+     * @param dbName the name of the database
+     * @param spot reference to the table builder
+     * @throws JinFluxException
+     */
+    public void write(String dbName,
                       Point.Builder spot) throws JinFluxException {
 
         spot.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
         // write the point to the database
             influxDB.write(dbName, "rpafecs", spot.build());
-
     }
 
+    /**
+     * Selects the data points, having the specified tag from a table of the database.
+     * <p>
+     *
+     * @param dbName the name of the database
+     * @param measurement the name of the table
+     * @param tag the name of the tag
+     * @return map of data points, such as data point name and values
+     * @throws JinFluxException
+     */
     public Map<Object, Object> read(String dbName, String measurement, String tag) throws JinFluxException {
         if (tag.equals("*")) throw new JinFluxException("wildcards are not supported");
         Map<Object, Object> rm = new LinkedHashMap<>();
@@ -343,6 +478,15 @@ public class JinFlux {
         return rm;
     }
 
+    /**
+     * Returns the list of tags of a table
+     * <p>
+     *
+     * @param dbName the name of the database
+     * @param measurement the tame of the table
+     * @return List of tags names
+     * @throws JinFluxException
+     */
     public List<String> readTags(String dbName, String measurement) throws JinFluxException {
         List<String> rl = new ArrayList<>();
         Query query = new Query("SELECT *  FROM " + measurement, dbName);
@@ -358,35 +502,9 @@ public class JinFlux {
         } catch (Exception e) {
             throw new JinFluxException(e.getMessage());
         }
-
         return rl;
     }
 
-    /**
-     * Queries the database. excepts "*" wildcard.
-     *
-     * @param dbName
-     * @param measurement
-     */
-    public void dump(String dbName, String measurement) throws JinFluxException {
-        Query query = new Query("SELECT * FROM " + measurement, dbName);
-
-        try {
-            QueryResult r = influxDB.query(query);
-
-            System.out.println(r);
-            printQueryResult(r);
-        } catch (Exception e) {
-            throw new JinFluxException(e.getMessage());
-        }
-
-    }
-
-    public boolean dbReset(String dbName) throws JinFluxException {
-        if (doesDbExists(dbName)) dbRemove(dbName);
-        return dbCreate(dbName);
-
-    }
 
     private void printQueryResult(QueryResult r) {
         if (r.getResults() != null) {
@@ -419,6 +537,5 @@ public class JinFlux {
                 }
             }
         }
-
     }
 }

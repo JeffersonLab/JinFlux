@@ -1,12 +1,8 @@
 package org.jlab.coda.jinflux.test;
 
-import org.influxdb.dto.Point;
 import org.jlab.coda.jinflux.JinFlux;
 import org.jlab.coda.jinflux.JinFluxException;
 import org.jlab.coda.jinflux.JinTime;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Class description here....
@@ -34,14 +30,14 @@ public class ManipulationTest {
 
 
 //            // create db
-//            jinFlux.dbCreate(dbName, 1, JinTime.DAY);
+//            jinFlux.createDB(dbName, 1, JinTime.DAY);
 //
 //            // check if db exists
-//            System.out.println(jinFlux.doesDbExists(dbName));
+//            System.out.println(jinFlux.existsDB(dbName));
 //
 //
 //            // print default retention policy
-//            System.out.println(jinFlux.rpShow(dbName));
+//            System.out.println(jinFlux.showRP(dbName));
 //
 //
 //            Map<String, String> tags = new HashMap<>();
@@ -50,9 +46,9 @@ public class ManipulationTest {
 //            tags.put("codaName", "ROC1");
 //            for (int j = 0; j<10;j++) {
 //                Point.Builder p = jinFlux.open(expid, tags);
-//                jinFlux.add(p, "eventRate", 123.3);
-//                jinFlux.add(p, "type", "ROC");
-//                jinFlux.flush(dbName, p);
+//                jinFlux.addDP(p, "eventRate", 123.3);
+//                jinFlux.addDP(p, "type", "ROC");
+//                jinFlux.write(dbName, p);
 //                JinUtil.sleep(1);
 //            }
 //
@@ -60,17 +56,17 @@ public class ManipulationTest {
 //            tags.put("codaName", "ROC2");
 //            for (int j = 0; j<10;j++) {
 //                Point.Builder p = jinFlux.open(expid, tags);
-//                jinFlux.add(p, "eventRate", 123.3);
-//                jinFlux.add(p, "type", "ROC");
-//                jinFlux.flush(dbName, p);
+//                jinFlux.addDP(p, "eventRate", 123.3);
+//                jinFlux.addDP(p, "type", "ROC");
+//                jinFlux.write(dbName, p);
 //                JinUtil.sleep(1);
 //            }
 //
 //
 //            JinUtil.sleep(1000);
 
-            // dump the measurement
-            jinFlux.dump(dbName, expid);
+            // dumpTB the measurement
+            jinFlux.dumpTB(dbName, expid);
 
         } catch (JinFluxException e) {
             e.printStackTrace();
