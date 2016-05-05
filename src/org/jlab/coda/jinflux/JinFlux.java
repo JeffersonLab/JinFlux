@@ -76,7 +76,6 @@ public class JinFlux {
         this(influxDbHost, 8086, "root", "root");
     }
 
-
     /**
      * Shows retention policy, configured for a database
      * <p>
@@ -504,7 +503,6 @@ public class JinFlux {
         }
         return rl;
     }
-
 
     private void printQueryResult(QueryResult r) {
         if (r.getResults() != null) {
