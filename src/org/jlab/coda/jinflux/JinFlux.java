@@ -232,8 +232,8 @@ public class JinFlux {
      * The existing database will be removed first.
      * <p>
      *
-     * @param dbName
-     * @return
+     * @param dbName the name of the databse
+     * @return true if succeeded to create the database
      * @throws JinFluxException
      */
     public boolean recreateDB(String dbName) throws JinFluxException {
@@ -299,12 +299,12 @@ public class JinFlux {
      * Note: this will not create an empty table in the database.
      * <p>
      *
-     * @param measurement the name of the table
+     * @param tbName the name of the table
      * @return pointer to the table
      */
-    public Point.Builder openTB(String measurement) {
+    public Point.Builder openTB(String tbName) {
 
-        return Point.measurement(measurement);
+        return Point.measurement(tbName);
     }
 
     /**
@@ -312,16 +312,16 @@ public class JinFlux {
      * Note: this will not create an empty table in the database.
      * <p>
      *
-     * @param measurement the name of the table
+     * @param tbName the name of the table
      * @param tagName the name of the tag
      * @param value the value of the tag
      * @return pointer to the table
      */
-    public Point.Builder openTB(String measurement,
+    public Point.Builder openTB(String tbName,
                                 String tagName,
                                 String value) {
 
-        return Point.measurement(measurement).tag(tagName, value);
+        return Point.measurement(tbName).tag(tagName, value);
     }
 
     /**
@@ -329,14 +329,14 @@ public class JinFlux {
      * Note: this will not create an empty table in the database.
      * <p>
      *
-     * @param measurement the name of the table
+     * @param tbName the name of the table
      * @param tags the map of table tag value pairs
      * @return pointer to the table
      */
-    public Point.Builder openTB(String measurement,
+    public Point.Builder openTB(String tbName,
                                 Map<String, String> tags) {
 
-        return Point.measurement(measurement).tag(tags);
+        return Point.measurement(tbName).tag(tags);
     }
 
     /**
@@ -344,11 +344,11 @@ public class JinFlux {
      * <p>
      *
      * @param dbName the of the database
-     * @param measurement the name of the measurement
+     * @param tbName the name of the tbName
      * @throws JinFluxException
      */
-    public void removeTB(String dbName, String measurement) throws JinFluxException {
-        Query query = new Query("DROP MEASUREMENT " + measurement, dbName);
+    public void removeTB(String dbName, String tbName) throws JinFluxException {
+        Query query = new Query("DROP MEASUREMENT " + tbName, dbName);
         try {
             influxDB.query(query);
         } catch (Exception e) {
@@ -360,10 +360,10 @@ public class JinFlux {
      * Dumps the content of the database recorded table on the console.
      *
      * @param dbName the name of the database
-     * @param measurement the name of the table
+     * @param tbName the name of the table
      */
-    public void dumpTB(String dbName, String measurement) throws JinFluxException {
-        Query query = new Query("SELECT * FROM " + measurement, dbName);
+    public void dumpTB(String dbName, String tbName) throws JinFluxException {
+        Query query = new Query("SELECT * FROM " + tbName, dbName);
 
         try {
             QueryResult r = influxDB.query(query);
@@ -381,37 +381,37 @@ public class JinFlux {
      * <p>
      *
      * @param point reference to the table
-     * @param field the name of the data point
+     * @param dpName the name of the data point
      * @param value the value of the data point
      * @return reference to the table builder
      */
     public Point.Builder addDP(Point.Builder point,
-                               String field,
+                               String dpName,
                                Object value) {
 
         if (value instanceof String) {
-            point.addField(field, (String) value);
+            point.addField(dpName, (String) value);
 
         } else if (value instanceof Boolean) {
-            point.addField(field, (Boolean) value);
+            point.addField(dpName, (Boolean) value);
 
         } else if (value instanceof Long) {
-            point.addField(field, (Long) value);
+            point.addField(dpName, (Long) value);
 
         } else if (value instanceof Double) {
-            point.addField(field, (Double) value);
+            point.addField(dpName, (Double) value);
 
         } else if (value instanceof Float) {
-            point.addField(field, (Float) value);
+            point.addField(dpName, (Float) value);
 
         } else if (value instanceof Number) {
-            point.addField(field, (Number) value);
+            point.addField(dpName, (Number) value);
 
         }else if (value instanceof List) {
             List l = (List)value;
             for(int i=0; i<l.size();i++) {
                 if(l.get(i) instanceof Number) {
-                    point.addField(field + "_" + i, (Number)l.get(i));
+                    point.addField(dpName + "_" + i, (Number)l.get(i));
                 } else break;
             }
         }
@@ -423,14 +423,14 @@ public class JinFlux {
      * <p>
      *
      * @param point reference to the table builder
-     * @param tags map of data point names and values
+     * @param dpNames map of data point names and values
      * @return reference to the table builder
      */
     public Point.Builder addDP(Point.Builder point,
-                               Map<String, Object> tags) {
+                               Map<String, Object> dpNames) {
 
-        for (String tag : tags.keySet()) {
-            addDP(point, tag, tags.get(tag));
+        for (String tag : dpNames.keySet()) {
+            addDP(point, tag, dpNames.get(tag));
         }
         return point;
     }
@@ -458,17 +458,17 @@ public class JinFlux {
      * <p>
      *
      * @param dbName the name of the database
-     * @param measurement the name of the table
+     * @param tbName the name of the table
      * @param tag the name of the tag
      * @return map of data points, such as data point name and values
      * @throws JinFluxException
      */
-    public Map<Object, Object> read(String dbName, String measurement, String tag) throws JinFluxException {
+    public Map<Object, Object> read(String dbName, String tbName, String tag) throws JinFluxException {
         if (tag.equals("*")) throw new JinFluxException("wildcards are not supported");
         Map<Object, Object> rm = new LinkedHashMap<>();
         Object o1 = null;
         Object o2 = null;
-        Query query = new Query("SELECT " + tag + " FROM " + measurement, dbName);
+        Query query = new Query("SELECT " + tag + " FROM " + tbName, dbName);
         try {
             QueryResult r = influxDB.query(query);
             if (r != null) {
@@ -503,13 +503,13 @@ public class JinFlux {
      * <p>
      *
      * @param dbName the name of the database
-     * @param measurement the tame of the table
+     * @param tbName the tame of the table
      * @return List of tags names
      * @throws JinFluxException
      */
-    public List<String> readTags(String dbName, String measurement) throws JinFluxException {
+    public List<String> readTags(String dbName, String tbName) throws JinFluxException {
         List<String> rl = new ArrayList<>();
-        Query query = new Query("SELECT *  FROM " + measurement, dbName);
+        Query query = new Query("SELECT *  FROM " + tbName, dbName);
         try {
             QueryResult r = influxDB.query(query);
 
