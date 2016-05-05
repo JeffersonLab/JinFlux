@@ -24,9 +24,22 @@ import java.util.concurrent.TimeUnit;
 public class JinFlux {
     private InfluxDB influxDB;
 
-    public JinFlux(String influxDbHost, String user, String password) throws JinFluxException {
+    /**
+     * Constructor
+     * Opens connection to the InfluxDB server using authentication.
+     * Enables batch mode where we flush every 1000 points at least
+     * every 100 milli seconds (which one comes first)
+     * <p>
+     *
+     * @param influxDbHost host of the InfluxDB server
+     * @param port port number of the InfluxDB server
+     * @param user database username
+     * @param password password
+     * @throws JinFluxException
+     */
+    public JinFlux(String influxDbHost, int port, String user, String password) throws JinFluxException {
         try {
-            this.influxDB = InfluxDBFactory.connect("http://" + influxDbHost + ":8086", user, password);
+            this.influxDB = InfluxDBFactory.connect("http://" + influxDbHost + ":"+port, user, password);
 
             // Flush every 1000 points, at least every 100ms (which one comes first)
             this.influxDB.enableBatch(1000, 100, TimeUnit.MILLISECONDS);
@@ -35,17 +48,47 @@ public class JinFlux {
         }
     }
 
+    /**
+     * Constructor
+     * Opens connection to the InfluxDB server using authentication.
+     * Uses default server port = 8086
+     * <p>
+     *
+     * @param influxDbHost host of the InfluxDB server
+     * @param user database username
+     * @param password password
+     * @throws JinFluxException
+     */
+    public JinFlux(String influxDbHost, String user, String password) throws JinFluxException {
+        this(influxDbHost,8086,user,password);
+     }
+
+    /**
+     * Constructor
+     * Opens connection to the InfluxDB server using default authentication and port number.
+     * <p>
+     *
+     * @param influxDbHost
+     * @throws JinFluxException
+     */
     public JinFlux(String influxDbHost) throws JinFluxException {
-        this(influxDbHost, "root", "root");
+        this(influxDbHost, 8086, "root", "root");
     }
 
 
+    /**
+     * Shows retention policy, configured for a database
+     * <p>
+     *
+     * @param dbName database name
+     * @return String representing the retention policy
+     * @throws JinFluxException
+     */
     public String rpShow(String dbName) throws JinFluxException {
         Query query = new Query("SHOW RETENTION POLICIES ON " + dbName, dbName);
         try {
             QueryResult r = influxDB.query(query);
 
-            String rpName = null;
             boolean isRpDefault = false;
 
             if (r.getResults() != null) {
@@ -58,7 +101,6 @@ public class JinFlux {
                                 sb.append(ll).append(" ");
                                 if (first) {
                                     isRpDefault = false;
-                                    rpName = (String) ll;
                                     first = false;
                                 } else {
                                     if (ll instanceof Boolean) {
@@ -68,7 +110,6 @@ public class JinFlux {
                                 }
                             }
                             if (isRpDefault) {
-//                                return rpName;
                                 return sb.toString();
                             }
                         }
@@ -78,39 +119,52 @@ public class JinFlux {
         } catch (Exception e) {
             throw new JinFluxException(e.getMessage());
         }
-
         return null;
     }
 
+    /**
+     * Ping the database server to see if it is up and running
+     * <p>
+     *
+     * @param timeout in seconds
+     * @return true if database is up and running
+     * @throws Exception
+     */
     public boolean ping(int timeout) throws Exception {
         int tries = 0;
         timeout = timeout * 10;
         boolean influxStarted = false;
         do {
-            Pong response;
-            response = this.influxDB.ping();
+            Pong response = this.influxDB.ping();
 
             if (!response.getVersion().equalsIgnoreCase("unknown")) {
                 influxStarted = true;
             }
             Thread.sleep(100L);
             tries++;
-        } while (!influxStarted || (tries < timeout));
+        } while (!influxStarted && (tries < timeout));
 
         return (tries < timeout);
     }
 
-    public boolean dbCreate(String dbName) throws JinFluxException {
-        influxDB.createDatabase(dbName);
-        return doesDbExists(dbName);
-    }
-
-    public boolean dbCreate(String dbName, int value, JinTime tm) throws JinFluxException {
+    /**
+     * Creates a database with specific data retention policy
+     * <p>
+     *
+     * @param dbName database name
+     * @param retentionTime retention time
+     * @param tm retention time unite {@link JinTime}
+     * @param rpName retention policy name
+     * @return true if succeeded to create the database
+     * @throws JinFluxException
+     */
+    public boolean dbCreate(String dbName, int retentionTime, JinTime tm, String rpName)
+            throws JinFluxException {
         if(doesDbExists(dbName)){
             dbRemove(dbName);
         }
         Query query = new Query("CREATE DATABASE " + dbName +
-                " WITH DURATION " + value+tm.weight()+" REPLICATION 1 NAME rpafecs", dbName);
+                " WITH DURATION " + retentionTime+tm.weight()+" REPLICATION 1 NAME "+rpName, dbName);
         try {
             influxDB.query(query);
         } catch (Exception e) {
@@ -119,6 +173,38 @@ public class JinFlux {
         return doesDbExists(dbName);
     }
 
+    /**
+     * Creates a database with specific data retentio
+     * <p>
+     *
+     * @param dbName database name
+     * @param retentionTime retention time
+     * @param tm retention time unite {@link JinTime}
+     * @return true if succeeded to create the database
+     * @throws JinFluxException
+     */
+    public boolean dbCreate(String dbName, int retentionTime, JinTime tm)
+            throws JinFluxException {
+        return dbCreate(dbName, retentionTime, tm, "rpafecs");
+     }
+
+    public boolean dbCreate(String dbName)
+            throws JinFluxException {
+        influxDB.createDatabase(dbName);
+        return doesDbExists(dbName);
+    }
+
+
+
+    public void measureRemove(String dbName, String measurement) throws JinFluxException {
+        Query query = new Query("DROP MEASUREMENT " + measurement, dbName);
+        try {
+            influxDB.query(query);
+        } catch (Exception e) {
+            throw new JinFluxException(e.getMessage());
+        }
+
+    }
     public void dbRemove(String dbName) throws JinFluxException {
         try {
             influxDB.deleteDatabase(dbName);
@@ -218,11 +304,7 @@ public class JinFlux {
 
         spot.time(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
         // write the point to the database
-        try {
             influxDB.write(dbName, "rpafecs", spot.build());
-        } catch (Exception e) {
-            throw new JinFluxException(e.getMessage());
-        }
 
     }
 
