@@ -1,0 +1,8 @@
+com.google.common.base
+com.google.common.escape
+org.influxdb
+org.influxdb.dto
+org.jlab.coda.jinflux
+org.jlab.coda.jinflux.test
+retrofit
+retrofit.client
