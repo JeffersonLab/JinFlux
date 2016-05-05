@@ -20,32 +20,23 @@
  *   Department of Experimental Nuclear Physics, Jefferson Lab.
  */
 
-package org.jlab.coda.jinflux.test;
-
-import org.jlab.coda.jinflux.JinFlux;
-import org.jlab.coda.jinflux.JinFluxException;
-import org.jlab.coda.jinflux.JinTime;
+package org.jlab.coda.jinflux;
 
 /**
  * Class description here....
  * <p>
  *
  * @author gurjyan
- *         Date 5/2/16
+ *         Date 4/27/16
  * @version 1.x
  */
-public class CreateDB {
-    public static void main(String[] args) {
-        String dbName = args[0];
-        String dbNode = "claraweb.jlab.org";
+public class JinUtil {
 
+    public static void sleep(int i){
         try {
-            JinFlux jinFlux = new JinFlux(dbNode);
-            jinFlux.createDB(dbName, 1, JinTime.HOURE);
-        } catch (JinFluxException e) {
+            Thread.sleep(i);
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
     }
-
 }
