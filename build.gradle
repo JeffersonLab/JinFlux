@@ -23,6 +23,7 @@
 apply plugin: 'java'
 apply plugin: 'maven'
 
+apply plugin: 'eclipse'
 apply plugin: 'idea'
 
 group = 'org.jlab.coda'
@@ -37,34 +38,24 @@ compileJava {
 }
 
 
-configurations {
-    provided {
-        transitive = true
-    }
-}
-
 sourceSets {
     main {
         java {
             srcDir 'src'
         }
-        compileClasspath += configurations.provided
-        runtimeClasspath += configurations.provided
     }
 }
 
 
 repositories {
-    mavenLocal()
-    maven {
-        url 'http://clasweb.jlab.org/clas12maven/'
-    }
     mavenCentral()
 }
 
 
 dependencies {
-    compile 'org.influxdb:influxdb-java:2.0'
+    compile ('org.influxdb:influxdb-java:2.2') {
+        transitive = false
+    }
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
@@ -85,11 +76,5 @@ uploadArchives {
         mavenDeployer {
             repository(url: localPublicationRepo)
         }
-    }
-}
-
-idea {
-    module {
-        scopes.COMPILE.plus += [configurations.provided]
     }
 }
