@@ -78,3 +78,25 @@ uploadArchives {
         }
     }
 }
+
+def deploySpec = copySpec {
+    into ('lib') {
+        from configurations.runtime
+        from jar.archivePath
+    }
+
+}
+
+task deploy(type: Copy, overwrite: true, dependsOn: jar) {
+    def dest = "$System.env.CLARA_HOME"
+
+    into dest
+    with deploySpec
+
+    doFirst {
+        if (dest == 'null') {
+            throw new GradleException('CLARA_HOME not set')
+        }
+    }
+}
+
