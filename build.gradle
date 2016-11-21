@@ -37,19 +37,11 @@ compileJava {
 }
 
 
-configurations {
-    provided {
-        transitive = true
-    }
-}
-
 sourceSets {
     main {
         java {
             srcDir 'src'
         }
-        compileClasspath += configurations.provided
-        runtimeClasspath += configurations.provided
     }
 }
 
@@ -85,11 +77,5 @@ uploadArchives {
         mavenDeployer {
             repository(url: localPublicationRepo)
         }
-    }
-}
-
-idea {
-    module {
-        scopes.COMPILE.plus += [configurations.provided]
     }
 }
