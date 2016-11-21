@@ -53,7 +53,7 @@ repositories {
 
 
 dependencies {
-    compile 'org.influxdb:influxdb-java:2.0'
+    compile 'org.influxdb:influxdb-java:2.2'
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
