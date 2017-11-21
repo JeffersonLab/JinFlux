@@ -31,7 +31,7 @@ package org.jlab.coda.jinflux;
  * @version 1.x
  */
 public enum JinTime {
-    HOURE  ("h"),
+    HOUR   ("h"),
     DAY    ("d"),
     WEEK   ("w"),
     INF    ("infinite");

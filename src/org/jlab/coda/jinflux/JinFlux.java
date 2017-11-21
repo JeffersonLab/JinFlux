@@ -58,7 +58,7 @@ public class JinFlux {
      * @param port port number of the InfluxDB server
      * @param user database username
      * @param password password
-     * @throws JinFluxException
+     * @throws JinFluxException exception
      */
     public JinFlux(String influxDbHost, int port, String user, String password) throws JinFluxException {
         try {
@@ -80,7 +80,7 @@ public class JinFlux {
      * @param influxDbHost host of the InfluxDB server
      * @param user database username
      * @param password password
-     * @throws JinFluxException
+     * @throws JinFluxException exception
      */
     public JinFlux(String influxDbHost, String user, String password) throws JinFluxException {
         this(influxDbHost,8086,user,password);

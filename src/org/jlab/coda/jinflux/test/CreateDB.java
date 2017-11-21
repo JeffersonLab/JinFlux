@@ -41,7 +41,7 @@ public class CreateDB {
 
         try {
             JinFlux jinFlux = new JinFlux(dbNode);
-            jinFlux.createDB(dbName, 1, JinTime.HOURE);
+            jinFlux.createDB(dbName, 1, JinTime.HOUR);
         } catch (JinFluxException e) {
             e.printStackTrace();
         }
