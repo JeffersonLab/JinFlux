@@ -1,42 +1,26 @@
 /*
- *   Copyright (c) 2016.  Jefferson Lab (JLab). All rights reserved. Permission
- *   to use, copy, modify, and distribute  this software and its documentation for
- *   educational, research, and not-for-profit purposes, without fee and without a
- *   signed licensing agreement.
- *
- *   IN NO EVENT SHALL JLAB BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL
- *   INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING
- *   OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF JLAB HAS
- *   BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *   JLAB SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- *   THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- *   PURPOSE. THE CLARA SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY,
- *   PROVIDED HEREUNDER IS PROVIDED "AS IS". JLAB HAS NO OBLIGATION TO PROVIDE
- *   MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
- *
- *   This software was developed under the United States Government license.
- *   For more information contact author at gurjyan@jlab.org
- *   Department of Experimental Nuclear Physics, Jefferson Lab.
- */
+*   Copyright (c) 2016. Jefferson Lab (JLab). All rights reserved.
+*   For more information contact author at gurjyan@jlab.org
+*   Department of Experimental Nuclear Physics, Jefferson Lab.
+*/
 
-apply plugin: 'java'
-apply plugin: 'maven'
-
-apply plugin: 'eclipse'
-apply plugin: 'idea'
+plugins {
+    id 'java-library'
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+}
 
 group = 'org.jlab.coda'
 archivesBaseName = 'jinflux'
 version = '1.0-SNAPSHOT'
 
-defaultTasks 'build'
-
-compileJava {
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
+defaultTasks 'build'
 
 sourceSets {
     main {
@@ -46,55 +30,63 @@ sourceSets {
     }
 }
 
-
 repositories {
     mavenCentral()
 }
 
-
 dependencies {
-    compile ('org.influxdb:influxdb-java:2.2')
+    api 'org.influxdb:influxdb-java:2.2'
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
+task sourcesJar(type: Jar) {
     from sourceSets.main.allSource
+    archiveClassifier.set('sources')
 }
 
 artifacts {
     archives sourcesJar
 }
 
+// Local repo location fallback
 if (!hasProperty('localPublicationRepo')) {
     ext.localPublicationRepo = 'file://localhost/tmp/repo'
 }
 
-uploadArchives {
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'org.jlab.coda'
+            artifactId = 'jinflux'
+            version = '1.0-SNAPSHOT'
+
+            from components.java
+            artifact tasks.sourcesJar
+        }
+    }
     repositories {
-        mavenDeployer {
-            repository(url: localPublicationRepo)
+        maven {
+            url = uri(localPublicationRepo)
         }
     }
 }
 
+// Deployment task
 def deploySpec = copySpec {
-    into ('lib') {
-        from configurations.runtime
+    into('lib') {
+        from configurations.runtimeClasspath
         from jar.archivePath
     }
-
 }
 
-task deploy(type: Copy, overwrite: true, dependsOn: jar) {
-    def dest = "$System.env.CLARA_HOME"
-
-    into dest
-    with deploySpec
+task deploy(type: Copy, dependsOn: jar) {
+    def dest = System.getenv('CLARA_HOME')
 
     doFirst {
-        if (dest == 'null') {
+        if (!dest) {
             throw new GradleException('CLARA_HOME not set')
         }
     }
-}
 
+    into dest
+    with deploySpec
+}
